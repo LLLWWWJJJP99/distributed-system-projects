@@ -7,6 +7,9 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.net.UnknownHostException;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.List;
@@ -14,21 +17,24 @@ import java.util.Properties;
 import java.util.Scanner;
 
 import cs6380.client.Client;
+import cs6380.server.Server;
 
 public class FileUtil {
 	
-	
+	private static final String SERVERIP = Server.IP;
+	private static final int SERVERPORT = Server.PORT;
 	public static void main(String[] args) throws FileNotFoundException {
 		
-		readConfig(".//config.txt");
+		createClients(".//config.txt");
 	}
 	
 	/**
 	 * read node info from config file and initialize client instance according to config format
 	 * @param fileName given config file name
+	 * @return return a list of client info
 	 * @throws FileNotFoundException
 	 */
-	public static void readConfig(String fileName) throws FileNotFoundException {
+	private static List<Client> readConfig(String fileName) throws FileNotFoundException {
 		Scanner scanner = new Scanner(new File(fileName));
 		// read number of nodes
 		int nodeNums = 0;
@@ -42,7 +48,7 @@ public class FileUtil {
 		
 		// initialize nodes
 		int index = 0;
-		//List<Client> list = new ArrayList<>();
+		List<Client> list = new ArrayList<>();
 		while(index < nodeNums && scanner.hasNextLine()) {
 			String line = scanner.nextLine();
 			if(!line.startsWith("#")){
@@ -59,12 +65,37 @@ public class FileUtil {
 						client.getNeighbors().add(info[i]);
 					}
 				}
-				//list.add(client);
+				list.add(client);
 				index++;
 			}
 		}
 		System.out.println("Reading Config Ends");
 		scanner.close();
+		return list;
 	}
-
+	
+	
+	public static void createClients(String fileName) {
+		List<Client> list = null;
+		try {
+			list = FileUtil.readConfig(fileName);
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+		if(list != null) {
+			try {
+				for(Client client : list) {
+					Socket socket = new Socket(SERVERIP, SERVERPORT);
+					//socket.bind(new InetSocketAddress(client.getHostName(), client.getPort()));
+					client.setSocket(socket);
+					client.register();
+					//client.test();
+				}
+			} catch (UnknownHostException e) {
+				e.printStackTrace();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+	}
 }
