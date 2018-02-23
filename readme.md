@@ -31,24 +31,30 @@ leader also prints the maximum degree of any node in the BFS tree.
 
 ## 2 Sample Configuration File
 
-\# Configuration file for CS 6380 Project 1 (Spring 2018)
+\# Configuration file for CS 6380 Project 1 (Spring 2018) 
+
 \#
-\# As per the "shell" convention, anything following a hash sign is
-\# a comment and should be ignored by the parser.
+\# As per the "shell" convention, anything following a hash sign is 
+
+\# a comment and should be ignored by the parser. 
+
 \#
 
-\# Number of nodes
+\# Number of nodes 
 5
 
-\# Here we list the individual nodes
+\# Here we list the individual nodes 
+
 \#
-\# Format is:
-\# UID Hostname Port UIDs of Neighbors
-123 dc01 3332 5 23
-5 dc33 5678 123 1043
-23 dc21 5231 123 1043 89
-1043 dc33 2311 5 23 89
-89 dc22 3124 23 1043
+\# Format is: 
+
+\# UID Hostname Port UIDs of Neighbors 
+
+123 dc01 3332 5 23 
+5 dc33 5678 123 1043 
+23 dc21 5231 123 1043 89 
+1043 dc33 2311 5 23 89 
+89 dc22 3124 23 1043 
 
 ## 3 How To Run The Project
 1. Place config.txt at the same directory as jar file
