@@ -12,8 +12,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import cs6380.message.Message;
+import cs6380.message.DegreeMessage;
+import cs6380.message.LeaderElectionMessage;
 import cs6380.message.MsgType;
+import cs6380.message.SpanningTreeMessage;
 import cs6380.util.FileUtil;
 
 public class Node {
@@ -23,6 +25,12 @@ public class Node {
 	private List<Integer> neighbors;
 	private Set<Integer> login_messages;
 
+	
+	private SpanningTree tree;
+	private final int myPort;
+	private final String myIP;
+	private LeaderElection election;
+
 	public int getMyPort() {
 		return myPort;
 	}
@@ -31,9 +39,9 @@ public class Node {
 		return myIP;
 	}
 
-	private final int myPort;
-	private final String myIP;
-	private LeaderElection election;
+	public int getId() {
+		return id;
+	}
 
 	public List<Integer> getNeighbors() {
 		return neighbors;
@@ -56,7 +64,7 @@ public class Node {
 	}
 
 	public Node() {
-		this.id = 5;
+		this.id = 23;
 		init = false;
 		neighbors = Collections.synchronizedList(new ArrayList<>());
 		nodeLookup = new NodeLookup(FileUtil.readConfig("config.txt", String.valueOf(id), neighbors));
@@ -65,12 +73,9 @@ public class Node {
 		login_messages = Collections.synchronizedSet(new HashSet<>());
 	}
 
-	public int getId() {
-		return id;
-	}
-
 	private void init() {
 		election = new LeaderElection(this);
+		tree = new SpanningTree(this);
 		listenToNeighbors();
 		while (login_messages.size() < neighbors.size()) {
 			broadcast(MsgType.LOGIN);
@@ -84,7 +89,7 @@ public class Node {
 		login_messages.clear();
 	}
 
-	public synchronized void login(Message message) {
+	public synchronized void login(LeaderElectionMessage message) {
 		System.out.println("loging message:" + message);
 		this.login_messages.add(new Integer(message.getSender()));
 	}
@@ -94,39 +99,108 @@ public class Node {
 	}
 
 	public synchronized void broadcast(String type) {
-		for (int neighbor : neighbors) {
-			String ip = nodeLookup.getIP(neighbor);
-			String port = nodeLookup.getPort(neighbor);
-			Message message = new Message(election.getDist(), election.getMax(), election.getPulse(), id, neighbor);
-			message.setType(type);
-			System.out.println(id + " broadcast:" + message);
-			try (Socket socket = new Socket(ip, Integer.parseInt(port))) {
-				ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
-				oos.writeObject(message);
-				oos.close();
-				socket.close();
-				if(MsgType.LOGIN.equals(type)) {
-					init = true;					
+		if (type.equals(MsgType.ROUND) || type.equals(MsgType.SUCCESS) || type.equals(MsgType.LOGIN)) {
+			for (int neighbor : neighbors) {
+				String ip = nodeLookup.getIP(neighbor);
+				String port = nodeLookup.getPort(neighbor);
+				LeaderElectionMessage message = new LeaderElectionMessage(election.getDist(), election.getMax(),
+						election.getPulse(), id, neighbor);
+				message.setType(type);
+				System.out.println(id + " broadcast:" + message);
+				try (Socket socket = new Socket(ip, Integer.parseInt(port))) {
+					ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
+					oos.writeObject(message);
+					oos.close();
+					socket.close();
+					if (MsgType.LOGIN.equals(type)) {
+						init = true;
+					}
+				} catch (ConnectException e) {
+					if (MsgType.LOGIN.equals(type)) {
+						init = false;
+					}
+					System.out.println("Please Wait For Other Neighbors To Be Started");
+				} catch (NumberFormatException e) {
+					e.printStackTrace();
+				} catch (UnknownHostException e) {
+					e.printStackTrace();
+				} catch (IOException e) {
+					e.printStackTrace();
 				}
-			} catch (ConnectException e) {
-				if(MsgType.LOGIN.equals(type)) {
-					init = false;					
-				}
-				System.out.println("Please Wait For Other Neighbors To Be Started");
-			} catch (NumberFormatException e) {
-				e.printStackTrace();
-			} catch (UnknownHostException e) {
-				e.printStackTrace();
-			} catch (IOException e) {
-				e.printStackTrace();
 			}
+		} else {
+			System.err.println("ROUND|SUCCESS: Wrong type of message to be sent");
 		}
 	}
 
-	public synchronized void processMessage(Message message) {
-		/*if (election.isDone()) {
-			return;
-		}*/
+	public synchronized void broadcast(String type, Integer except) {
+		if (type.equals(MsgType.QUERY)) {
+			for (int neighbor : neighbors) {
+				if (except != null && except == neighbor) {
+					continue;
+				}
+				String ip = nodeLookup.getIP(neighbor);
+				String port = nodeLookup.getPort(neighbor);
+				SpanningTreeMessage message = new SpanningTreeMessage(id, neighbor, type);
+				System.out.println(id + " broadcast:" + message);
+				try (Socket socket = new Socket(ip, Integer.parseInt(port))) {
+					ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
+					oos.writeObject(message);
+					oos.close();
+					socket.close();
+				} catch (NumberFormatException e) {
+					e.printStackTrace();
+				} catch (UnknownHostException e) {
+					e.printStackTrace();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+		} else {
+			System.err.println("QUERY: Wrong type of message to be sent");
+		}
+	}
+
+	public synchronized void sendPrivateMessage(SpanningTreeMessage message) {
+		int receiver = message.getReceiver();
+		String ip = nodeLookup.getIP(receiver);
+		String port = nodeLookup.getPort(receiver);
+		try (Socket socket = new Socket(ip, Integer.parseInt(port))) {
+			ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
+			oos.writeObject(message);
+			oos.close();
+			socket.close();
+		} catch (NumberFormatException e) {
+			e.printStackTrace();
+		} catch (UnknownHostException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	public synchronized void sendPrivateMessage(DegreeMessage message) {
+		int receiver = message.getReceiver();
+		String ip = nodeLookup.getIP(receiver);
+		String port = nodeLookup.getPort(receiver);
+		try (Socket socket = new Socket(ip, Integer.parseInt(port))) {
+			ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
+			oos.writeObject(message);
+			oos.close();
+			socket.close();
+		} catch (NumberFormatException e) {
+			e.printStackTrace();
+		} catch (UnknownHostException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	public synchronized void processLeaderElectionMessage(LeaderElectionMessage message) {
+		/*
+		 * if (election.isDone()) { return; }
+		 */
 		System.out.println(id + " receives " + message);
 		if (message.getType().equals(MsgType.ROUND)) {
 			if (message.getPulse() == election.getPulse()) {
@@ -146,12 +220,51 @@ public class Node {
 		}
 	}
 
-	private void run() {
+	public synchronized void processSpanningTreeMessage(SpanningTreeMessage message) {
+		String type = message.getType();
+		if (type.equals(MsgType.QUERY)) {
+			tree.processQuery(message);
+		} else if (type.equals(MsgType.REJECT)) {
+			tree.processReject(message);
+		} else if (type.equals(MsgType.ACCEPT)) {
+			tree.processAccept(message);
+		}
+
+		if (tree.check(neighbors, tree.getParent())) {
+			System.out.println(id + " parent " + tree.getParent());
+			System.out.println(id + " children " + tree.getChildren());
+			System.out.println(id + " unrelated " + tree.getUnrelated());
+		}
+	}
+
+	public synchronized void processDegreeMessage(DegreeMessage degreeMessage) {
+		if(degreeMessage.getType().equals(MsgType.ACK)) {
+			tree.processACK(degreeMessage);
+		}else {
+			System.err.println("Degree Message: wrong message type");
+		}
+	}
+	
+	private void startFindMaxDegree() {
+		if (tree.getChildren().size() == 0) {
+			DegreeMessage message = new DegreeMessage(id, tree.getParent(), tree.getMax(), MsgType.ACK, id);
+			sendPrivateMessage(message);
+		}
+	}
+
+	private void startBuildSpanningTree() {
+		if (election.getCandidate() == 1 && tree.getParent() == null) {
+			tree.setParent(new Integer(id));
+			broadcast(MsgType.QUERY, null);
+		}
+	}
+
+	private void startLeaderElection() {
 		while (!election.isDone() && init) {
 			broadcast(MsgType.ROUND);
 			boolean roundDone = false;
 			while (!roundDone && !election.isDone()) {
-				if(election.check() && !election.isDone()) {
+				if (election.check() && !election.isDone()) {
 					if (election.exe_pelege()) {
 						broadcast(MsgType.SUCCESS);
 						election.setDone(true);
@@ -167,9 +280,9 @@ public class Node {
 		}
 		System.out.println("I am " + id + ", " + election);
 	}
-	
+
 	private void test() {
-		while(init) {
+		while (init) {
 			broadcast(MsgType.SUCCESS);
 			try {
 				Thread.sleep(1000);
@@ -182,9 +295,26 @@ public class Node {
 	public static void main(String[] args) {
 		Node node = new Node();
 		node.init();
-		node.run();
-		//node.test();
-		//node.broadcast(MsgType.SUCCESS);
+		node.startLeaderElection();
+
+		if (node.election.isDone()) {
+			try {
+				Thread.sleep(3 * 1000);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+			node.startBuildSpanningTree();
+			node.tree.init();
+			try {
+				Thread.sleep(3 * 1000);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+
+			node.startFindMaxDegree();
+		}
+		// node.test();
+		// node.broadcast(MsgType.SUCCESS);
 	}
 
 }

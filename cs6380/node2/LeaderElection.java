@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import cs6380.message.Message;
+import cs6380.message.LeaderElectionMessage;
 
 public class LeaderElection {
 	private Node node;
@@ -13,8 +13,8 @@ public class LeaderElection {
 	private int counter;
 	private int max;
 	private int candidate;
-	private List<Message> buffered_messages;
-	private List<Message> message_list;
+	private List<LeaderElectionMessage> buffered_messages;
+	private List<LeaderElectionMessage> message_list;
 	private boolean done;
 	public int getPulse() {
 		return pulse;
@@ -66,7 +66,7 @@ public class LeaderElection {
 	}
 
 
-	public List<Message> getBuffered_Messages() {
+	public List<LeaderElectionMessage> getBuffered_Messages() {
 		return buffered_messages;
 	}
 
@@ -93,7 +93,7 @@ public class LeaderElection {
 	}
 
 
-	public List<Message> getMessage_list() {
+	public List<LeaderElectionMessage> getMessage_list() {
 		return message_list;
 	}
 
@@ -104,11 +104,11 @@ public class LeaderElection {
 	
 	public synchronized boolean exe_pelege() {
 		pulse += 1;
-		Message max_message = message_list.get(0);
-		List<Message> list = new ArrayList<>();
+		LeaderElectionMessage max_message = message_list.get(0);
+		List<LeaderElectionMessage> list = new ArrayList<>();
 		list.add(max_message);
 		for(int i = 1; i < message_list.size(); i++) {
-			Message next = message_list.get(i);
+			LeaderElectionMessage next = message_list.get(i);
 			if(next.getMax() > max_message.getMax()) {
 				max_message = next;
 				list.clear();
@@ -125,7 +125,7 @@ public class LeaderElection {
 			counter = 1;
 		}else {
 			int z = Integer.MIN_VALUE;
-			for(Message m : list) {
+			for(LeaderElectionMessage m : list) {
 				if(m.getDist() > z) {
 					z = m.getDist();
 				}

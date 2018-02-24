@@ -1,4 +1,4 @@
-package cs6380.node1;
+package cs6380.node5;
 
 public interface ClientProtocol {
 	int PROTOCOL_LEN = 2;

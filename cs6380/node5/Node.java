@@ -1,4 +1,4 @@
-package cs6380.node3;
+package cs6380.node5;
 
 import java.io.IOException;
 import java.io.ObjectOutputStream;
@@ -64,7 +64,7 @@ public class Node {
 	}
 
 	public Node() {
-		this.id = 89;
+		this.id = 123;
 		init = false;
 		neighbors = Collections.synchronizedList(new ArrayList<>());
 		nodeLookup = new NodeLookup(FileUtil.readConfig("config.txt", String.valueOf(id), neighbors));

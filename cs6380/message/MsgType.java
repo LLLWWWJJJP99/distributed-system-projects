@@ -5,4 +5,7 @@ public interface MsgType {
 	String ROUND = "round";
 	String ACK = "ack";
 	String SUCCESS = "success";
+	String REJECT = "reject";
+	String ACCEPT = "accept";
+	String QUERY = "query";
 }
