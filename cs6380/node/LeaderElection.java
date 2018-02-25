@@ -97,11 +97,19 @@ public class LeaderElection {
 		return message_list;
 	}
 
-	
+	/**
+	 * if current node get all neighbors' current round message then return true otherwise return false
+	 * @param neighbors of this node
+	 * @param parent of this node
+	 * @return true if current node is allowed to execute peleg's algo
+	 */
 	public synchronized boolean check() {
 		return message_list.size() == node.getNeighbors().size();
 	}
 	
+	/**execute peleg's leader election algo
+	 * @return true if algo should be terminated or false
+	 */
 	public synchronized boolean exe_pelege() {
 		pulse += 1;
 		LeaderElectionMessage max_message = message_list.get(0);

@@ -11,6 +11,10 @@ import cs6380.message.Message;
 import cs6380.message.MsgType;
 import cs6380.message.SpanningTreeMessage;
 
+/**
+ * @author 29648
+ * NodeListener accept message and process it according to the real class of it
+ */
 public class NodeListener implements Runnable {
 	private Node node;
 

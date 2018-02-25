@@ -20,15 +20,18 @@ import cs6380.util.FileUtil;
 
 public class Node {
 	private final int id;
+	//true if all neighbors are set up
 	private boolean init;
 	private NodeLookup nodeLookup;
+	// neighbors' id
 	private List<Integer> neighbors;
 	private Set<Integer> login_messages;
 
-	
+	// spanning tree algorithm
 	private SpanningTree tree;
 	private final int myPort;
 	private final String myIP;
+	// leader election algorithm
 	private LeaderElection election;
 
 	public int getMyPort() {
@@ -47,6 +50,10 @@ public class Node {
 		return neighbors;
 	}
 
+	/**
+	 * NodeLookup is used to look for ip and port associated with given id
+	 *
+	 */
 	class NodeLookup {
 		HashMap<Integer, String> map;
 
@@ -73,6 +80,10 @@ public class Node {
 		login_messages = Collections.synchronizedSet(new HashSet<>());
 	}
 
+	/**
+	 * broadcast login message until it receive all neighbors's login message
+	 * so that all neighbors wake up
+	 */
 	private void init() {
 		election = new LeaderElection(this);
 		tree = new SpanningTree(this);
@@ -94,10 +105,17 @@ public class Node {
 		this.login_messages.add(new Integer(message.getSender()));
 	}
 
+	/**
+	 * start another thread to accept incomming messages
+	 */
 	private void listenToNeighbors() {
 		new Thread(new NodeListener(this)).start();
 	}
 
+	/**
+	 * broadcast a message to each neighbor according to given type
+	 * @param type of message
+	 */
 	public synchronized void broadcast(String type) {
 		if (type.equals(MsgType.ROUND) || type.equals(MsgType.SUCCESS) || type.equals(MsgType.LOGIN)) {
 			for (int neighbor : neighbors) {
@@ -107,6 +125,7 @@ public class Node {
 						election.getPulse(), id, neighbor);
 				message.setType(type);
 				System.out.println(id + " broadcast:" + message);
+				// connect to neighbor and send a message, then close connection immediately
 				try (Socket socket = new Socket(ip, Integer.parseInt(port))) {
 					ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
 					oos.writeObject(message);
@@ -132,7 +151,11 @@ public class Node {
 			System.err.println("ROUND|SUCCESS: Wrong type of message to be sent");
 		}
 	}
-
+	/**
+	 * broadcast a message to each neighbor according to given type except the given neighbor(except)
+	 * @param type of message
+	 * @param neighbor that will not be sent a message
+	 */
 	public synchronized void broadcast(String type, Integer except) {
 		if (type.equals(MsgType.QUERY)) {
 			for (int neighbor : neighbors) {
@@ -143,6 +166,7 @@ public class Node {
 				String port = nodeLookup.getPort(neighbor);
 				SpanningTreeMessage message = new SpanningTreeMessage(id, neighbor, type);
 				System.out.println(id + " broadcast:" + message);
+				// connect to neighbor and send a message, then close connection immediately
 				try (Socket socket = new Socket(ip, Integer.parseInt(port))) {
 					ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
 					oos.writeObject(message);
@@ -161,6 +185,10 @@ public class Node {
 		}
 	}
 
+	/**
+	 * sent a SpanningTreeMessage message to single neighbor
+	 * @param SpanningTreeMessage message to be sent
+	 */
 	public synchronized void sendPrivateMessage(SpanningTreeMessage message) {
 		int receiver = message.getReceiver();
 		String ip = nodeLookup.getIP(receiver);
@@ -178,7 +206,11 @@ public class Node {
 			e.printStackTrace();
 		}
 	}
-
+	
+	/**
+	 * sent a DegreeMessage message to single neighbor
+	 * @param DegreeMessage message to be sent
+	 */
 	public synchronized void sendPrivateMessage(DegreeMessage message) {
 		int receiver = message.getReceiver();
 		String ip = nodeLookup.getIP(receiver);
@@ -197,14 +229,20 @@ public class Node {
 		}
 	}
 
+	/**
+	 * process LeaderElectionMessage according to it's type
+	 * @param message LeaderElectionMessage message to be processed
+	 */
 	public synchronized void processLeaderElectionMessage(LeaderElectionMessage message) {
 		/*
 		 * if (election.isDone()) { return; }
 		 */
 		System.out.println(id + " receives " + message);
 		if (message.getType().equals(MsgType.ROUND)) {
+			//message belonging to current round
 			if (message.getPulse() == election.getPulse()) {
 				election.getMessage_list().add(message);
+			//message belonging to next round will be buffered
 			} else if (message.getPulse() == election.getPulse() + 1) {
 				election.getBuffered_Messages().add(message);
 			} else {
@@ -219,7 +257,11 @@ public class Node {
 			}
 		}
 	}
-
+	
+	/**
+	 * process SpanningTreeMessage according to it's type
+	 * @param message SpanningTreeMessage message to be processed
+	 */
 	public synchronized void processSpanningTreeMessage(SpanningTreeMessage message) {
 		String type = message.getType();
 		if (type.equals(MsgType.QUERY)) {
@@ -236,7 +278,11 @@ public class Node {
 			System.out.println(id + " unrelated " + tree.getUnrelated());
 		}
 	}
-
+	
+	/**
+	 * process DegreeMessage according to it's type
+	 * @param message DegreeMessage message to be processed
+	 */
 	public synchronized void processDegreeMessage(DegreeMessage degreeMessage) {
 		if(degreeMessage.getType().equals(MsgType.ACK)) {
 			tree.processACK(degreeMessage);
@@ -264,7 +310,9 @@ public class Node {
 			broadcast(MsgType.ROUND);
 			boolean roundDone = false;
 			while (!roundDone && !election.isDone()) {
+				// execute peleg's algo iif receive all neighbors's current round message
 				if (election.check() && !election.isDone()) {
+					// if receive same messages continuously in 3 rounds then stop
 					if (election.exe_pelege()) {
 						broadcast(MsgType.SUCCESS);
 						election.setDone(true);
@@ -295,6 +343,7 @@ public class Node {
 	public static void main(String[] args) {
 		Node node = new Node();
 		node.init();
+		// elect leader
 		node.startLeaderElection();
 
 		if (node.election.isDone()) {
@@ -303,6 +352,8 @@ public class Node {
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
+			
+			// build spanning tree
 			node.startBuildSpanningTree();
 			node.tree.init();
 			try {
@@ -310,7 +361,7 @@ public class Node {
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
-
+			//converge cast to find node with max degree
 			node.startFindMaxDegree();
 		}
 		// node.test();

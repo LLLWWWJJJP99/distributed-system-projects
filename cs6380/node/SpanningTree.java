@@ -12,6 +12,7 @@ import cs6380.message.SpanningTreeMessage;
 
 public class SpanningTree {
 	private Set<Integer> children;
+	// unrelated neighbors
 	private Set<Integer> unrelated;
 	private Node node;
 	private int max;
@@ -55,16 +56,30 @@ public class SpanningTree {
 		maxID = node.getId();
 	}
 
+	/**
+	 * process reject message according to flooding algo
+	 * @param message to be processed
+	 */
 	public synchronized void processReject(SpanningTreeMessage message) {
 		int neighbor = message.getSender();
 		unrelated.add(neighbor);
 	}
-
+	
+	/**
+	 * process accept message according to flooding algo
+	 * @param message to be processed
+	 */
 	public synchronized void processAccept(SpanningTreeMessage message) {
 		int child = message.getSender();
 		children.add(child);
 	}
 
+	
+	/**
+	 * @param neighbors of current node
+	 * @param parent of current node
+	 * @return true if current node get all children' reply otherwise false
+	 */
 	public synchronized boolean check(List<Integer> neighbors, Integer parent) {
 		HashSet<Integer> set = new HashSet<>(neighbors);
 		set.remove(parent);
@@ -73,7 +88,11 @@ public class SpanningTree {
 		sumup.addAll(unrelated);
 		return sumup.equals(set);
 	}
-
+	
+	/**
+	 * process query message according to flooding algo
+	 * @param message to be processed
+	 */
 	public synchronized void processQuery(SpanningTreeMessage message) {
 		if (parent == null) {
 			parent = new Integer(message.getSender());
@@ -87,17 +106,22 @@ public class SpanningTree {
 			node.sendPrivateMessage(reject);
 		}
 	}
-
+	
+	/**
+	 * process ack message from converge cast
+	 * @param message to be processed
+	 */
 	public synchronized void processACK(DegreeMessage degreeMessage) {
 		int sender = degreeMessage.getSender();
 		int degree = degreeMessage.getDegree();
 		int maxId = degreeMessage.getMaxID();
 		recorder.remove(new Integer(sender));
+		// update max degree and corresponding id
 		if (degree > max) {
 			maxID = maxId;
 			max = degree;
 		}
-
+		// if receive all neighbors' reply, then sent ack to it's parent iff the current node is not the root
 		if (recorder.size() == 0) {
 			if (parent != node.getId()) {
 				DegreeMessage message = new DegreeMessage(degreeMessage.getReceiver(), parent, max, MsgType.ACK, maxID);
