@@ -78,5 +78,11 @@ leader also prints the maximum degree of any node in the BFS tree.
 2. Run the jar File
 
 ```
-User should modify the config.txt accordingly to configure port, ip and neighbors for each node. The sample config file is given here.
+1. User should modify the config.txt accordingly to configure port, ip and neighbors for each node. The sample config file is given here.
+
+2. When you run the program, you should also input the node id separately. Eg: when you start machine one with node id 1, 
+you should use java -jar **.jar 1
+
+3. The SynchBFS folder contians implementation of Synchronous BFS tree, while the other is implementation asynchronous spanning tree.
+My Email is wxl163530@gmail.com, feel free to contact me about the project.
 ```
